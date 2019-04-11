@@ -27,3 +27,4 @@ PAWren<- GetRouteData(AOU=6540, countrynum = 840, states = PACode, year = PAYear
                       weather = WeatherMetaData, routes = RoutesMetaData,
                       Zeroes = TRUE)
 # leads to warnings();  In FUN(X[[i]], ...) : no ID, so setting to NA
+# some issue with IDs in getID function not matching I assume - will work on it
