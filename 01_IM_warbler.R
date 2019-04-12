@@ -5,10 +5,24 @@
 # Cov: Elevation and forest cover
 
 # libraries----
+library(plyr)
+library(dplyr)
 library(rBBS)
+library(USAboundaries)
+library(sf)
+library(sp)
+library(readr)
 
 # data prep----
-# PA BBA from Miller et al. appendix
+# PA BBA from Miller et al. appendix (can I avoid to hardcode here?)
+load("N://IM_warbler/warbler_data.RData")
+
+# merge count intervals
+BBA_Wren <- bba %>%
+  mutate(total = select(., v1:v5) %>% rowSums(na.rm = TRUE)) %>%
+  select(-c(v1:v5))
+
+
 # BBS
 RegionMetaData <- GetRegions()
 WeatherMetaData <- GetWeather()
@@ -130,8 +144,33 @@ GetRouteData <- function(AOU=NULL, countrynum=NULL, states=NULL, year, weather=N
 }
 
 
-PAWren<- GetRouteData(AOU=6540, countrynum = 840, states = PACode, year = PAYears,
+BBS_Wren<- GetRouteData(AOU=6540, countrynum = 840, states = PACode, year = PAYears,
                       weather = WeatherMetaData, routes = RoutesMetaData,
                       Zeroes = TRUE)
 
+# eBird / GBIF
+# get PA outline
+PA = us_states(states = "Pennsylvania")
+PA <- PA$geometry[1]
+PA <- as(PA, 'Spatial')
+proj <- proj4string(PA)
+
+# get GBIF data, filter for 2005-2009
+GBIF <- read_delim("GBIF.csv", "\t", escape_double = FALSE, 
+                   trim_ws = TRUE)
+GBIF <- GBIF %>% 
+  select(decimalLatitude, decimalLongitude, year) %>%
+  filter(year %in% c(2005:2009))
+
+# make into spatial points
+GBIF_coords <- cbind(GBIF$decimalLongitude, GBIF$decimalLatitude)
+GBIF_pts <- SpatialPoints(coords = GBIF_coords, proj4string = CRS(proj))
+
+# trim to keep only those occuring in PA
+GBIF_pts2 <- over(GBIF_pts, PA)
+GBIF_Wren <- data.frame(GBIF_coords[!is.na(GBIF_pts2), ] )
+
+# check the map
+plot(GBIF_pts, pch=16, cex=0.4)
+points(GBIF_Wren, pch=16, cex=0.1, col="green")
 
