@@ -12,6 +12,8 @@ library(USAboundaries)
 library(sf)
 library(sp)
 library(readr)
+library(raster)
+
 
 # data prep----
 # PA BBA from Miller et al. appendix (can I avoid to hardcode here?)
@@ -174,3 +176,5 @@ GBIF_Wren <- data.frame(GBIF_coords[!is.na(GBIF_pts2), ] )
 plot(GBIF_pts, pch=16, cex=0.4)
 points(GBIF_Wren, pch=16, cex=0.1, col="green")
 
+# covariates----
+# NLCD 2011 USFS Tree Canopy analytical (CONUS)
