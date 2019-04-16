@@ -13,16 +13,29 @@ library(sf)
 library(sp)
 library(readr)
 library(raster)
-
+library(rgdal)
+library(FedData)
+library(RColorBrewer)
 
 # data prep----
+# get PA outline
+PA = us_states(states = "Pennsylvania")
+PA <- PA$geometry[1]
+PA <- as(PA, 'Spatial')
+proj <- proj4string(PA)
+
 # PA BBA from Miller et al. appendix (can I avoid to hardcode here?)
-load("N://IM_warbler/warbler_data.RData")
+load("N:/IM_warbler/warbler_data.RData")
 
 # merge count intervals
 BBA_Wren <- bba %>%
-  mutate(total = select(., v1:v5) %>% rowSums(na.rm = TRUE)) %>%
-  select(-c(v1:v5))
+  mutate(total = dplyr::select(., v1:v5) %>% rowSums(na.rm = TRUE)) %>%
+  dplyr::select(-c(v1:v5)) %>%
+  mutate(present = if_else(total == 0, FALSE, TRUE))
+
+BBA_sp <- SpatialPointsDataFrame(BBA_Wren[,c("Longitude", "Latitude")],
+                               data = BBA_Wren[,c("present", "point")],
+                               proj4string = crs(proj))
 
 
 # BBS
@@ -146,22 +159,17 @@ GetRouteData <- function(AOU=NULL, countrynum=NULL, states=NULL, year, weather=N
 }
 
 
-BBS_Wren<- GetRouteData(AOU=6540, countrynum = 840, states = PACode, year = PAYears,
+BBS_Wren <- GetRouteData(AOU=6540, countrynum = 840, states = PACode, year = PAYears,
                       weather = WeatherMetaData, routes = RoutesMetaData,
                       Zeroes = TRUE)
+BBS_sp <- SpatialPoints(BBS_Wren[,c("Longitude", "Latitude")], proj4string = crs(proj))
 
 # eBird / GBIF
-# get PA outline
-PA = us_states(states = "Pennsylvania")
-PA <- PA$geometry[1]
-PA <- as(PA, 'Spatial')
-proj <- proj4string(PA)
-
 # get GBIF data, filter for 2005-2009
 GBIF <- read_delim("GBIF.csv", "\t", escape_double = FALSE, 
                    trim_ws = TRUE)
 GBIF <- GBIF %>% 
-  select(decimalLatitude, decimalLongitude, year) %>%
+  dplyr::select(decimalLatitude, decimalLongitude, year) %>%
   filter(year %in% c(2005:2009))
 
 # make into spatial points
@@ -169,12 +177,29 @@ GBIF_coords <- cbind(GBIF$decimalLongitude, GBIF$decimalLatitude)
 GBIF_pts <- SpatialPoints(coords = GBIF_coords, proj4string = CRS(proj))
 
 # trim to keep only those occuring in PA
-GBIF_pts2 <- over(GBIF_pts, PA)
-GBIF_Wren <- data.frame(GBIF_coords[!is.na(GBIF_pts2), ] )
+GBIF_pts <- over(GBIF_pts, PA)
+GBIF_pts <- data.frame(GBIF_coords[!is.na(GBIF_pts),])
+GBIF_sp <- SpatialPoints(coords = GBIF_pts, proj4string = CRS(proj))
 
-# check the map
-plot(GBIF_pts, pch=16, cex=0.4)
-points(GBIF_Wren, pch=16, cex=0.1, col="green")
+# plot all together to double check
+cols <- c(brewer.pal(4, "Paired"))
+names(cols) <- c("BBS", "GBIF", "BBA, absent", "BBA, present")
+plot(PA)
+points(BBS_sp, cex = 0.5, pch = 19, col = cols["BBS"])
+points(GBIF_sp, cex = 0.5, pch = 19, col = cols["GBIF"])
+points(BBA_sp, cex = 0.7, pch = 19, col = cols[c("BBA, absent", "BBA, present")][1+BBA_sp@data$present])
+legend("top", legend = names(cols), fill = cols, cex = 0.8)
 
 # covariates----
-# NLCD 2011 USFS Tree Canopy analytical (CONUS)
+# elevation data using elevatr (could theoretically also use FedData but get holes in elev raster)
+elev <- get_elev_raster(PA, z = 8, clip = "locations") #z = 1 for lowest res, z = 14 for highest (DL time very long)
+plot(elev, alpha = 0.2, add = T) # just to double-check
+
+# canopy from the NLCD
+NLCD_canopy <- get_nlcd(template = PA, year = 2011, dataset = "canopy", label = "PA_lc")
+NLCD_canopy <- projectRaster(from = NLCD_canopy, to = elev)
+NLCD_canopy <- mask(NLCD_canopy, elev)
+plot(NLCD_canopy, alpha = 0.2, add = T) # again, just to check
+
+
+
