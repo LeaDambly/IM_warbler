@@ -14,8 +14,10 @@ library(sp)
 library(readr)
 library(raster)
 library(rgdal)
+library(elevatr)
 library(FedData)
 library(RColorBrewer)
+library(PointedSDMs)
 
 # data prep----
 # get PA outline
@@ -25,7 +27,7 @@ PA <- as(PA, 'Spatial')
 proj <- proj4string(PA)
 
 # PA BBA from Miller et al. appendix (can I avoid to hardcode here?)
-load("N:/IM_warbler/warbler_data.RData")
+load("N:/IM_warbler/PA_BBA.RData")
 
 # merge count intervals
 BBA_Wren <- bba %>%
@@ -194,12 +196,33 @@ legend("top", legend = names(cols), fill = cols, cex = 0.8)
 # elevation data using elevatr (could theoretically also use FedData but get holes in elev raster)
 elev <- get_elev_raster(PA, z = 8, clip = "locations") #z = 1 for lowest res, z = 14 for highest (DL time very long)
 plot(elev, alpha = 0.2, add = T) # just to double-check
+elevation <- as.data.frame(elev, xy = T)
+elevation <- na.omit(elevation)
 
 # canopy from the NLCD
 NLCD_canopy <- get_nlcd(template = PA, year = 2011, dataset = "canopy", label = "PA_lc")
 NLCD_canopy <- projectRaster(from = NLCD_canopy, to = elev)
 NLCD_canopy <- mask(NLCD_canopy, elev)
 plot(NLCD_canopy, alpha = 0.2, add = T) # again, just to check
+canopy <- as.data.frame(NLCD_canopy, xy = T)
+canopy <- na.omit(canopy)
 
+covariates <- full_join(elevation, canopy, by = c("x", "y"))
+covariates <- covariates %>%
+  rename(elevation = layer, canopy = PA_lc_NLCD_2011_canopy)
+covariates <- SpatialPointsDataFrame(covariates[,c("x", "y")], 
+                                     data = covariates[,c("elevation", "canopy")], proj4string = crs(proj))
+covariates@data <-data.frame(apply(covariates@data, 2 , scale))  # scale the covariates
 
+# make mesh
+# change mesh vars with Meshpars -> more vertices = better approximation = longer calculations 
+Meshpars <- list(cutoff = 0.8, max.edge = c(1, 3), offset = c(1, 1))
+Mesh <- MakeSpatialRegion(data = NULL, bdry = PA, meshpars = Meshpars,
+                          proj = proj)
+stk.ip <- MakeIntegrationStack(mesh = Mesh$mesh, data = Covariates, area=Mesh$w, 
+                               tag='ip', InclCoords=TRUE)
+stk.ip.dists <- AddDistToRangeToStack(in.stk=stk.ip, coords=c("X", "Y"), 
+                                      polynoms = range.polygon, scale=FALSE)
 
+# plot mesh: better if triangles are close to equilateral
+plot(Mesh$mesh)
