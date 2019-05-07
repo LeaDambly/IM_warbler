@@ -1,0 +1,347 @@
+---
+title: 'IOFF: worked example'
+author: "Lea Dambly"
+date: "`r Sys.Date()`"
+output: html_document
+---
+
+## Introduction
+
+This is an example of model-based data integration for the IOFF paper using data for the black-throated blue warbler (*Setophaga caerulescens*) in Pennsylvania (from here on 'PA').
+
+The datasets are:
+
+* The North American Breeding Bird survey (BBS)
+* eBird
+* PA Breeding Bird Atlas (BBA) - a subset of an area within PA used by Miller et al.
+
+The model covariates are:
+
+* Elevation (from the USGS)
+* Canopy cover (USGS National Land Cover Database)
+
+```{r libraries, message = FALSE}
+library(plyr)
+library(dplyr)
+library(rBBS)
+library(USAboundaries)
+library(sf)
+library(sp)
+library(readr)
+library(raster)
+library(rgdal)
+library(elevatr)
+library(FedData)
+library(RColorBrewer)
+library(PointedSDMs)
+library(mapview)
+
+# loading the results of the below code into the environment here
+# bad practice but don't have time to run the code again
+load("N:/IM_warbler/stk_progress.RData")
+
+```
+
+## Data
+
+```{r data gathering, message = FALSE}
+# get PA outline
+PA <- us_states(states = "Pennsylvania")
+PA <- PA$geometry[1]
+PA <- as(PA, 'Spatial')
+
+# save PA projection as this will be the basis for all other projections
+proj <- proj4string(PA)
+
+# BBA from Miller et al. appendix
+load("N:/IM_warbler/PA_BBA.RData")
+# sum counts (counts are undertaken in 5 time intervals)
+BBA_Wren <- bba %>%
+  mutate(total = dplyr::select(., v1:v5) %>% rowSums(na.rm = TRUE)) %>%
+  dplyr::select(-c(v1:v5)) %>%
+  mutate(present = if_else(total == 0, FALSE, TRUE))
+# change to spatial dataframe
+BBA_sp <- SpatialPointsDataFrame(BBA_Wren[,c("Longitude", "Latitude")],
+                               data = BBA_Wren[,c("present", "point")],
+                               proj4string = crs(proj))
+
+# BBS (using rBBS package)
+RegionMetaData <- GetRegions()
+WeatherMetaData <- GetWeather()
+# GetRoutes function has an issue. It calls Routes.zip instead of routes.zip
+GetRoutes <- function(Dir="ftp://ftpext.usgs.gov/pub/er/md/laurel/BBS/DataFiles/") {
+  routes=GetUnzip(ZipName=paste0(Dir, "routes.zip"), FileName="routes.csv")
+  routes$routeID=paste(routes$statenum, routes$Route)
+  routes
+}
+RoutesMetaData <- GetRoutes()
+
+PACode <- RegionMetaData$RegionCode[RegionMetaData$`State/Prov/TerrName` == "PENNSYLVANIA"]
+PAYears <- 2005:2009
+
+# fixed getRouteData
+RegionsForZipFiles <- GetRegions(ZipFiles = TRUE)
+GetRouteData <- function(AOU=NULL, countrynum=NULL, states=NULL, year, weather=NULL, routes=NULL, 
+                         Zeroes=TRUE, TenStops = TRUE, 
+                         Dir="ftp://ftpext.usgs.gov/pub/er/md/laurel/BBS/DataFiles/") {
+  
+  if(TenStops) {
+    DirData <- paste0(Dir, "States/")
+    CountString <- "^count"
+  } else {
+    if(any(year<1997)) stop("Data only available from 1997: pre-1997 data not integrated into this function for 50 stop data (yet)")
+    DirData <- paste0(Dir, "50-StopData/1997ToPresent_SurveyWide/")
+    CountString <- "^stop"
+  }
+  if(!is.null(countrynum) & any(!(countrynum%in%c(124, 484, 840)))) stop("countrynum should be either 124 (Canada), 484 (Mexico), or 840 (USA)")
+  
+  GetDat <- function(file, dir, year, AOU, countrynum, states) {
+    dat <- GetUnzip(ZipName=paste0(dir, file), FileName=gsub("^Fifty", "fifty", gsub("zip", "csv", file)))
+    names(dat) <- tolower(names(dat))
+    if(is.null(year)) {  UseYear <- TRUE  } else {  UseYear <- dat$year%in%year  }
+    if(is.null(AOU)) {  UseAOU <- TRUE  } else {  UseAOU <- dat$aou%in%AOU  }
+    if(is.null(countrynum)) {  UseCountry <- TRUE  } else {  UseCountry <- dat$countrynum%in%countrynum  }
+    if(is.null(states)) {  UseState <- TRUE  } else {  UseState <- dat$statenum%in%states  }
+    Use <- UseYear & UseAOU & UseCountry & UseState
+    if(sum(Use)>0) {
+      dat$routeID <- paste(dat$statenum, dat[,grep("^[Rr]oute$", names(dat))])
+      dat <- subset(dat, subset=Use)
+      return(dat)      
+    } else return(NULL)
+  }
+  
+  # Only use the files we want
+  CountriesToUse <- if(!is.null(countrynum)) {
+    RegionsForZipFiles$countrynum%in%countrynum 
+  } else {
+    TRUE
+  }
+  StatesToUse <- if(!is.null(states)) {
+    RegionsForZipFiles$RegionCode%in%states 
+  } else {
+    TRUE
+  }
+  ToUse <- CountriesToUse & StatesToUse
+  if(TenStops) {
+    Files <- RegionsForZipFiles$FileName10stop[ToUse]
+    Missing <- ToUse & is.na(RegionsForZipFiles$FileName10stop)
+  } else { # 50 stop
+    Files <- RegionsForZipFiles$FileName50stop[ToUse]
+    Missing <- ToUse & is.na(RegionsForZipFiles$FileName50stop)
+  }
+  
+  if(length(Files)==0) stop("No data for the states specified")
+  if(any(is.na(Files))) warning(paste0("No data for these states: ", paste(RegionsForZipFiles$'State/Prov/TerrName'[Missing], collapse=", ")))
+  
+  Data.lst <- sapply(Files[!is.na(Files)], GetDat, dir=DirData, year=year, AOU=AOU, countrynum=countrynum, states=states, simplify=FALSE)
+  
+  if(all(unlist(lapply(Data.lst, is.null)))) {
+    warning("no data, sorry")
+    AllData <- NULL
+  } else {
+    Data <- ldply(Data.lst)
+    # Get route data for all routes, and annual data
+    if(is.null(weather)) weather <-GetWeather(Dir)
+    if(is.null(year)) {  UseYear <- TRUE  } else {  UseYear <- weather$Year%in%year  }
+    if(is.null(countrynum)) {  UseCountry <- TRUE  } else {  UseCountry <- weather$CountryNum%in%countrynum  }
+    if(is.null(states)) {  UseState <- TRUE  } else {  UseState <- weather$StateNum%in%states  }
+    UseWeather <- UseYear & UseCountry & UseState
+    
+    if(is.null(routes)) routes <- GetRoutes(Dir)
+    if(is.null(countrynum)) {  UseCountry <- TRUE  } else {  UseCountry <- routes$CountryNum%in%countrynum  }
+    if(is.null(states)) {  UseState <- TRUE  } else {  UseState <- routes$StateNum%in%states  }
+    UseRoutes <- UseCountry & UseState
+    
+    CommonNames <- names(Data)[names(Data)%in%names(weather)]
+    CommonNames <- CommonNames[CommonNames%in%names(routes)]
+    
+    # Subset data
+    # First, sites sampled in chosen year(s)
+    weather <-subset(weather, subset=UseWeather, 
+                     select=c(CommonNames, "Year", "Month", "Day", "RunType", "StateNum"))
+    # Route data for sites sampled in chosen years
+    routes <- subset(routes, subset=UseRoutes & routes$routeID%in%weather$routeID, 
+                     select=c(CommonNames, "Latitude", "Longitude", "StateNum"))
+    
+    # merge data sets
+    dat.routeID.year <- paste(Data$routeID, Data$year, sep=".")
+    routes$routeID <- paste0(routes$StateNum, routes$routeID)
+    weather.routeID.year <- paste(paste0(weather$StateNum, weather$routeID), weather$Year, sep=".")
+    
+    WeatherWhiches <- match(dat.routeID.year, weather.routeID.year)
+    
+    RouteWhiches <- match(Data$routeID, routes$routeID)
+    
+    AllData <- cbind(Data, weather[WeatherWhiches, !names(weather)%in%names(Data)],
+                     routes[RouteWhiches, !names(routes)%in%names(Data)])
+    
+    #  if(!is.na(weather)) AllData <- merge(Data, weather, all=TRUE) # by=c("routeID", "RPID"), 
+    #  if(!is.na(routes))  AllData <- merge(AllData, routes, all=TRUE) # by="routeID", 
+    AllData$SumCount <- apply(AllData[,grep(CountString, names(AllData))],1,sum, na.rm=TRUE)
+    if(!Zeroes) AllData <- subset(AllData, AllData$SumCount>0)
+    AllData <- AllData[,!names(AllData)%in%c(".id", "routedataid", "year")]
+  }
+  
+  AllData
+}
+
+
+BBS_Wren <- GetRouteData(AOU=6540, countrynum = 840, states = PACode, year = PAYears,
+                      weather = WeatherMetaData, routes = RoutesMetaData,
+                      Zeroes = TRUE)
+# change to spatial points
+BBS_sp <- SpatialPoints(BBS_Wren[,c("Longitude", "Latitude")], proj4string = crs(proj))
+
+# eBird / GBIF
+# get GBIF data, filter for 2005-2009
+GBIF <- read_delim("GBIF.csv", "\t", escape_double = FALSE, 
+                   trim_ws = TRUE)
+GBIF <- GBIF %>% 
+  dplyr::select(decimalLatitude, decimalLongitude, year) %>%
+  filter(year %in% c(2005:2009))
+
+# make into spatial points
+GBIF_coords <- cbind(GBIF$decimalLongitude, GBIF$decimalLatitude)
+GBIF_pts <- SpatialPoints(coords = GBIF_coords, proj4string = CRS(proj))
+
+# trim to keep only those occuring in PA (with probably unnecessary back-and-forth of data formats)
+GBIF_pts <- over(GBIF_pts, PA)
+GBIF_pts <- data.frame(GBIF_coords[!is.na(GBIF_pts),])
+GBIF_sp <- SpatialPoints(coords = GBIF_pts, proj4string = CRS(proj))
+```
+
+```{r plot data, message = FALSE}
+cols <- c(brewer.pal(4, "Set1"))
+names(cols) <- c("BBS", "GBIF", "BBA, absent", "BBA, present")
+plot(PA)
+points(BBS_sp, cex = 0.5, pch = 19, col = cols["BBS"])
+points(GBIF_sp, cex = 0.5, pch = 19, col = cols["GBIF"])
+points(BBA_sp, cex = 0.5, pch = 19, col = cols[c("BBA, absent", "BBA, present")][1+BBA_sp@data$present])
+legend("topright", inset = c(-0.05,-0.05), xpd= TRUE, legend = names(cols), fill = cols, cex = 0.8)
+```
+
+## Covariates
+```{r cov gathering, message = FALSE}
+# elevation data using elevatr (could theoretically also use FedData but get holes in elev raster)
+elev <- get_elev_raster(PA, z = 8, clip = "locations") #z = 1 for lowest res, z = 14 for highest (DL time very long)
+
+elevation <- as.data.frame(elev, xy = T)
+elevation <- na.omit(elevation)
+
+# canopy from the NLCD
+NLCD_canopy <- get_nlcd(template = PA, year = 2011, dataset = "canopy", label = "PA_lc")
+NLCD_canopy <- projectRaster(from = NLCD_canopy, to = elev)
+NLCD_canopy <- mask(NLCD_canopy, elev)
+plot(NLCD_canopy, add = T) # again, just to check
+canopy <- as.data.frame(NLCD_canopy, xy = T)
+canopy <- na.omit(canopy)
+
+covariates <- full_join(elevation, canopy, by = c("x", "y"))
+covariates <- covariates %>%
+  rename(elevation = layer, canopy = PA_lc_NLCD_2011_canopy)
+covariates <- SpatialPointsDataFrame(covariates[,c("x", "y")], 
+                                     data = covariates[,c("elevation", "canopy")], proj4string = crs(proj))
+covariates@data <-data.frame(apply(covariates@data, 2 , scale))  # scale the covariates
+```
+
+```{r plotcov, message = FALSE}
+plot(elev, main = 'Elevation')
+plot(NLCD_canopy, main = "Canopy")
+```
+
+## Data preparation
+The model works by approximating the continuous space by a tesselation of triangles, so we have to create that tesselation, i.e. the mesh.
+```{r MakeMesh, message = FALSE}
+# change mesh vars with Meshpars -> more vertices = better approximation = longer calculations 
+# units same as in projection
+Meshpars <- list(max.edge = c(0.15, 0.5), offset = c(0, 0.5), cutoff = 0.2)
+
+Mesh <- MakeSpatialRegion(data = NULL, bdry = PA, meshpars = Meshpars,
+                          proj = proj)
+
+stk.ip <- MakeIntegrationStack(mesh = Mesh$mesh, data = covariates, area=Mesh$w, 
+                               tag='ip', InclCoords=TRUE)
+```
+
+```{r plot mesh, message = FALSE}
+plot(Mesh$mesh)
+```
+
+The blue line is our actual region. The outer line is a necessary expansion to avoid boundary effects.
+
+
+Next, create some data that we want to predict onto, in order to draw a map of the predicted presence. The resolution of the map is controlled by Nxy.scale (the width and height in pixels).
+```{r pred, message = FALSE}
+# make data for projections----
+Nxy.scale <- 0.1 # change the resolution of the predictions
+Boundary <- Mesh$mesh$loc[Mesh$mesh$segm$int$idx[,2],]
+Nxy <- round(c(diff(range(Boundary[,1])), diff(range(Boundary[,2])))/Nxy.scale)
+stk.pred <- MakeProjectionGrid(nxy = Nxy, mesh = Mesh$mesh, data = covariates, 
+                             tag = 'pred', boundary = Boundary)
+```
+
+Now format the data into 'stacks' to be used in the model.
+```{r stacks, message = FALSE}
+# data stacks----
+stk.BBS <- MakePointsStack(presences = BBS_sp, data = covariates, mesh = Mesh$mesh, 
+                           tag='BBS', InclCoords = TRUE)
+stk.gbif <- MakePointsStack(presences = GBIF_sp, data = covariates, mesh = Mesh$mesh, 
+                            tag = 'gbif', InclCoords = TRUE)
+stk.BBA <- MakeBinomStack(observs = BBA_sp, data = covariates, mesh = Mesh$mesh,
+                            presname='present', tag='BBA', InclCoords=TRUE)
+```
+
+## Model and results
+
+Fit the model.
+```{r fit model, message = FALSE}
+warbler_model <- FitModel(stk.BBS, stk.gbif, stk.BBA,
+                        stk.pred$stk, CovNames = NULL, mesh = Mesh$mesh,
+                        predictions = TRUE)
+```
+
+View outputs.
+```{r outputs, message = FALSE}
+warbler_model$model$summary.fixed
+```
+
+Prepare for interactive map plot.
+```{r compplots, results = 'hide', warning = FALSE, message = FALSE}
+Pred <- SpatialPixelsDataFrame(points = stk.pred$predcoords, data = warbler_model$predictions, proj4string = crs(proj))
+Pred@data$precision <- Pred@data$stddev^-2
+ncolours <- 200
+meancols.fn <- colorRampPalette(brewer.pal(9, 'Oranges'))
+meancols <- meancols.fn(ncolours)
+map.mean <- mapview(Pred, zcol = c("mean"), legend = TRUE, 
+                    col.regions=meancols)
+
+sdcols.fn <- colorRampPalette(brewer.pal(9, 'Blues'))
+sdcols <- sdcols.fn(ncolours) 
+map.stddev <- mapview(Pred, zcol = c("stddev"), legend = TRUE, alpha=0.3, 
+                      col.regions = sdcols)
+
+elev.fn <- colorRampPalette(brewer.pal(9, 'Spectral'))
+elevcol <- elev.fn(ncolours)
+map.elev <- mapview(elev, legend = TRUE, col.regions = elevcol, layer.name = "Elevation")
+
+
+can.fn <- colorRampPalette(brewer.pal(9, 'BuGn'))
+cancol <- can.fn(ncolours)
+map.can <- mapview(NLCD_canopy, legend = TRUE, col.regions = cancol, layer.name = "Canopy")
+
+map.bbs <- mapview(BBS_sp, legend = TRUE, layer.name = "BBS", cex = 4, lwd = 0.5, col.regions = "yellow")
+map.gbif <- mapview(GBIF_sp, legend = TRUE, layer.name = "GBIF", cex = 4, lwd = 0.5, col.regions = "pink")
+
+BBAabs <- BBA_sp[which(BBA_sp@data$present == F),]
+BBApres <- BBA_sp[which(BBA_sp@data$present == T),]
+map.bba1 <- mapview(BBAabs, legend = TRUE, layer.name = "BBA absent", cex = 4, lwd = 0.5, col.regions = "grey")
+map.bba2 <- mapview(BBApres, legend = TRUE, layer.name = "BBA present", cex = 4, lwd = 0.5, col.regions = "green")
+```
+
+All plotted together on one interactive map. Obviously way too many layers at first, so you'll have to turn layers off/on depending on what you want to view (below the zoom buttons on the left).
+```{r allplot}
+map.elev + map.can + map.mean + map.stddev + map.bbs + map.gbif + map.bba1 + map.bba2
+```
+
+
+# ToDo: FitModel what is the formula going into inla function
