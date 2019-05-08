@@ -55,11 +55,12 @@ proj <- proj4string(PA)
 
 # BBA from Miller et al. appendix
 load("N:/IM_warbler/PA_BBA.RData")
-# sum counts (counts are undertaken in 5 time intervals)
+# sum counts (counts are undertaken in 5 time intervals at a single spatial point)
 BBA_Wren <- bba %>%
   mutate(total = dplyr::select(., v1:v5) %>% rowSums(na.rm = TRUE)) %>%
   dplyr::select(-c(v1:v5)) %>%
   mutate(present = if_else(total == 0, FALSE, TRUE))
+
 # change to spatial dataframe
 BBA_sp <- SpatialPointsDataFrame(BBA_Wren[,c("Longitude", "Latitude")],
                                data = BBA_Wren[,c("present", "point")],
@@ -187,8 +188,20 @@ GetRouteData <- function(AOU=NULL, countrynum=NULL, states=NULL, year, weather=N
 
 
 BBS_Wren <- GetRouteData(AOU=6540, countrynum = 840, states = PACode, year = PAYears,
-                      weather = WeatherMetaData, routes = RoutesMetaData,
+                      weather = WeatherMetaData, routes = RoutesMetaData, TenStops = FALSE,
                       Zeroes = TRUE)
+
+# counts are made along a route
+# need to be made into number of presences and number of trials (routes)
+BBS_Wren <- BBS_Wren %>%
+  mutate(NPres = rowSums(dplyr::select(., starts_with("stop")) > 0)) %>%
+  mutate(Ntrials = rowSums(!is.na(dplyr::select(., starts_with("stop"))))) %>%
+  group_by(route) %>%
+  summarise(Ntrials = sum(Ntrials),
+            NPres = sum(NPres),
+            Latitude = first(Latitude),
+            Longitude = first(Longitude))
+
 # change to spatial points
 BBS_sp <- SpatialPoints(BBS_Wren[,c("Longitude", "Latitude")], proj4string = crs(proj))
 
@@ -276,15 +289,15 @@ Next, create some data that we want to predict onto, in order to draw a map of t
 Nxy.scale <- 0.1 # change the resolution of the predictions
 Boundary <- Mesh$mesh$loc[Mesh$mesh$segm$int$idx[,2],]
 Nxy <- round(c(diff(range(Boundary[,1])), diff(range(Boundary[,2])))/Nxy.scale)
-stk.pred <- MakeProjectionGrid(nxy = Nxy, mesh = Mesh$mesh, data = covariates, 
+stk.pred <- (nxy = Nxy, mesh = Mesh$mesh, data = covariates, 
                              tag = 'pred', boundary = Boundary)
 ```
 
 Now format the data into 'stacks' to be used in the model.
 ```{r stacks, message = FALSE}
 # data stacks----
-stk.BBS <- MakePointsStack(presences = BBS_sp, data = covariates, mesh = Mesh$mesh, 
-                           tag='BBS', InclCoords = TRUE)
+stk.BBS <- MakeBinomStack(observs = BBS_sp, mesh=Mesh$mesh, presname="NPres", trialname="Ntrials",
+                          tag='BBS', InclCoords=TRUE)
 stk.gbif <- MakePointsStack(presences = GBIF_sp, data = covariates, mesh = Mesh$mesh, 
                             tag = 'gbif', InclCoords = TRUE)
 stk.BBA <- MakeBinomStack(observs = BBA_sp, data = covariates, mesh = Mesh$mesh,
@@ -295,14 +308,33 @@ stk.BBA <- MakeBinomStack(observs = BBA_sp, data = covariates, mesh = Mesh$mesh,
 
 Fit the model.
 ```{r fit model, message = FALSE}
-warbler_model <- FitModel(stk.BBS, stk.gbif, stk.BBA,
+# create priors - tight & wide
+
+C.F.tight <- list(mean = list(int.BBS = 0, int.gbif = 0, int.BBA = 0),
+    mean.intercept=0, prec.intercept = 0.001,
+    prec = list(int.BBS = 1, int.gbif = 1, int.BBA = 1))
+
+C.F.wide <- list(mean = list(int.BBS = 0, int.gbif = 0, int.BBA = 0),
+    mean.intercept=0, prec.intercept = 0.001,
+    prec = list(int.BBS = 1e-4, int.gbif = 1e-4, int.BBA = 1e-4))
+
+# control.fixed not obvious - lots of digging into INLA functions
+# priors with different distributions?
+warbler_model_tight <- FitModel(stk.BBS, stk.gbif, stk.BBA,
+                         stk.pred$stk, CovNames = NULL, mesh = Mesh$mesh,
+                         predictions = TRUE, control.fixed = C.F.tight)
+
+
+warbler_model_wide <- FitModel(stk.BBS, stk.gbif, stk.BBA,
                         stk.pred$stk, CovNames = NULL, mesh = Mesh$mesh,
-                        predictions = TRUE)
+                        predictions = TRUE, control.fixed = C.F.wide)
 ```
 
 View outputs.
 ```{r outputs, message = FALSE}
-warbler_model$model$summary.fixed
+warbler_model_tight$model$summary.fixed
+
+warbler_model_wide$model$summary.fixed
 ```
 
 Prepare for interactive map plot.
