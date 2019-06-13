@@ -26,7 +26,7 @@ load("Data/Stacks.RData")
                               prior.range = c(0.02, 0.5), # range0, Prange
                               prior.sigma = c(5, 0.1))
   
-  form <- formula(resp ~ 0 + elevation + canopy + Intercept + X + Y + int.BBS + log(density) + 
+  form <- formula(resp ~ 0 + elevation + canopy + Intercept + X + Y + int.BBS + # log(density) + 
                     int.gbif + int.BBA + f(i, model = spde))
   
   # FitModel2 is a fixed version of Bob's FitModel

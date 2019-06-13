@@ -11,7 +11,7 @@ Mesh <- MakeSpatialRegion2(data = NULL, bdry = PA, meshpars = Meshpars,
                            proj =  proj)
 plot(Mesh$mesh)
 
-stk.ip <- MakeIntegrationStack(mesh = Mesh$mesh, data = covariates, area=Mesh$w, 
+stk.ip_all <- MakeIntegrationStack(mesh = Mesh$mesh, data = covariates_eBird, area=Mesh$w, 
                                tag='ip', InclCoords=TRUE)
 
 # make data for projections
@@ -23,9 +23,10 @@ stk.pred <- MakeProjectionGrid(nxy = Nxy, mesh = Mesh$mesh, data = covariates,
 # data stacks
 stk.BBS <- MakeBinomStack(observs = BBS_sp,data = covariates, mesh=Mesh$mesh,
                           presname="NPres", trialname="Ntrials", tag='BBS', InclCoords=TRUE)
-stk.gbif <- MakePointsStack(presences = GBIF_sp, data = covariates_gbif, mesh = Mesh$mesh, 
-                            tag = 'gbif', InclCoords = TRUE)
+stk.eBird <- MakePointsStack(presences = eBird_sp, data = covariates_eBird, mesh = Mesh$mesh, 
+                            tag = 'eBird', InclCoords = TRUE)
 stk.BBA <- MakeBinomStack(observs = BBA_sp, data = covariates, mesh = Mesh$mesh,
                           presname='present', tag='BBA', InclCoords=TRUE)
 
-save(stk.ip, stk.pred, stk.gbif, stk.BBS, stk.BBA, Mesh, file="Data/Stacks.RData")
+save(stk.ip, stk.pred, stk.eBird, stk.BBS, stk.BBA, Mesh, file="Data/Stacks.RData")
+save(stk.ip, stk.ip_all, stk.pred, stk.eBird, stk.BBS, stk.BBA, Mesh, file="Data/Stacks.RData")
