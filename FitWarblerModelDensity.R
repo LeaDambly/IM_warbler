@@ -12,7 +12,7 @@ load("Data/Stacks.RData")
 
   # create priors 
   C.F. <- list(mean = list(int.BBS = 0, int.gbif = 0, int.BBA = 0),
-               mean.intercept=0, prec.intercept = 0.001,
+               mean.intercept=0, prec.intercept = 0.01,
                prec = list(int.BBS = 1, int.gbif = 1, int.BBA = 1))
   
   # The parameters "prior.range" and "prior.sd" control the joint prior on range and standard deviation of the spatial field.
@@ -23,7 +23,7 @@ load("Data/Stacks.RData")
   # "At this point I think one has to do some experimenting with the priors. As far as I know, we still do not have enough experience with the priors to come up with clearer guidelines"
   
   spde <- inla.spde2.pcmatern(mesh = Mesh$mesh, alpha = 2, 
-                              prior.range = c(0.02, 0.5),
+                              prior.range = c(0.02, 0.5), # range0, Prange
                               prior.sigma = c(5, 0.1))
   
   form <- formula(resp ~ 0 + elevation + canopy + Intercept + X + Y + int.BBS + log(density) + 

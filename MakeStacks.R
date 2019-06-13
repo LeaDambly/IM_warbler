@@ -1,13 +1,16 @@
 library(PointedSDMs)
 
 load("Data/BTWarblerData.RData")
+source("warblerfunctions.R")
 
 # change mesh vars with Meshpars -> more vertices = better approximation = longer calculations 
 # units same as in projection
-Meshpars <- list(max.edge = c(0.15, 0.3), offset = c(0.1, 0.4), cutoff = 0.2)
+Meshpars <- list(max.edge = c(0.05, 0.4), offset = c(0.1, 0.4), cutoff = 0.1)
 
 Mesh <- MakeSpatialRegion2(data = NULL, bdry = PA, meshpars = Meshpars,
                            proj =  proj)
+plot(Mesh$mesh)
+
 stk.ip <- MakeIntegrationStack(mesh = Mesh$mesh, data = covariates, area=Mesh$w, 
                                tag='ip', InclCoords=TRUE)
 

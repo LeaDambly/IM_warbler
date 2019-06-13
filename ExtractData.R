@@ -79,7 +79,7 @@ BBS_sp <- SpatialPointsDataFrame(BBS_Wren[,c("X", "Y")],
 
 # eBird / GBIF
 # get GBIF data, filter for 2005-2009: eBird (actually Lab of O) only 
-GBIF <- readr::read_delim(unzip("~/Dropbox/DataIntegration/0023215-190415153152247.zip"), "\t", escape_double = FALSE, 
+GBIF <- readr::read_delim(unzip("~/Dropbox/DataIntegration/0023215-190415153152247.zip"), "\t", escape_double = FALSE,
                    trim_ws = TRUE)
 
 # make into spatial points
@@ -88,21 +88,27 @@ GBIF <- GBIF %>%
   filter(year %in% c(2005:2009)) %>%
   rename(X = decimalLongitude, Y = decimalLatitude)
 
+#  if we want to use spocc, but it only has about 300 data observations
+# GBIF.raw <- occ("Setophaga caerulescens", from="gbif", date=c("2005-01-01", "2005-12-31"), geometry=PA@bbox)$gbif
+# GBIF <- GBIF.raw$data$Setophaga_caerulescens[grep("EBIRD", GBIF.raw$data$Setophaga_caerulescens$collectionCode), 
+#                                              c("longitude", "latitude", "year")]
+# names(GBIF) <- gsub("longitude", "X", names(GBIF))
+# names(GBIF) <- gsub("latitude", "Y", names(GBIF))
+
 # make into spatial points
 GBIF_coords <- cbind(GBIF$X, GBIF$Y)
 GBIF_pts <- SpatialPoints(coords = GBIF_coords, proj4string = proj)
 # trim to keep only those occuring in PA (with probably unnecessary back-and-forth of data formats)
 GBIF_pts <- over(GBIF_pts, PA)
-GBIF_ptsC <- Add2010Census(data=GBIF_pts, proj=proj, censuskey=censuskey)
-  
+
 GBIF_pts <- data.frame(GBIF_coords[!is.na(GBIF_pts),])
 GBIF_sp <- SpatialPoints(coords = GBIF_pts, proj4string = proj)
 
 # Covariates
 
-# elevation data using elevatr (could theoretically also use FedData but get holes in elev raster)
 elev <- get_elev_raster(PA, z = 8, clip = "locations") #z = 1 for lowest res, z = 14 for highest (DL time very long)
 elevation <- as.data.frame(elev, xy = T, na.rm = T)
+# elevation data using elevatr (could theoretically also use FedData but get holes in elev raster)
 
 # canopy from the NLCD
 NLCD_canopy <- get_nlcd(template = PA, year = 2011, dataset = "canopy", label = "PA_lc")

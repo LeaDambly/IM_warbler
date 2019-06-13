@@ -161,8 +161,9 @@ Add2010Census <- function(data, proj, censuskey) {
 
 # just took PointedSDM's function apart a bit because buffer function used in MakeSpatialRegion doesn't work with unprojected data - so no buffering here
 MakeSpatialRegion2 <- function (data = NULL, coords = c("X", "Y"), meshpars, bdry = NULL, 
-                                proj = CRS("+proj=utm")) 
-{    region.bdry <- inla.sp2segment(bdry)
+                                proj = CRS("+proj=utm")) {
+  require(rgeos)
+  region.bdry <- inla.sp2segment(bdry)
 mesh <- inla.mesh.2d(boundary = region.bdry, cutoff = meshpars$cutoff, 
                      max.edge = meshpars$max.edge, offset = meshpars$offset)
 spde <- inla.spde2.matern(mesh = mesh, alpha = 2)
