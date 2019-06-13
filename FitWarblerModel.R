@@ -11,9 +11,9 @@ load("Data/Stacks.RData")
 
 
   # create priors 
-  C.F. <- list(mean = list(int.BBS = 0, int.gbif = 0, int.BBA = 0),
+  C.F. <- list(mean = list(int.BBS = 0, int.eBird = 0, int.BBA = 0),
                mean.intercept=0, prec.intercept = 0.001,
-               prec = list(int.BBS = 1, int.gbif = 1, int.BBA = 1))
+               prec = list(int.BBS = 1, int.eBird = 1, int.BBA = 1))
   
   # The parameters "prior.range" and "prior.sd" control the joint prior on range and standard deviation of the spatial field.
   # see here for details: 
@@ -27,10 +27,10 @@ load("Data/Stacks.RData")
                               prior.sigma = c(5, 0.1))
   
   form <- formula(resp ~ 0 + elevation + canopy + Intercept + X + Y + int.BBS + 
-                    int.gbif + int.BBA + f(i, model = spde))
+                    int.eBird + int.BBA + f(i, model = spde))
   
   # FitModel2 is a fixed version of Bob's FitModel
-  warbler_model <- FitModel2(stk.ip, stk.pred$stk, stk.gbif, stk.BBS, stk.BBA,
+  warbler_model <- FitModel2(stk.ip, stk.pred$stk, stk.eBird, stk.BBS, stk.BBA,
                              formula = form, CovNames = NULL, mesh = Mesh$mesh,
                              predictions = TRUE, control.fixed = C.F., waic = TRUE, nthreads=16)
   

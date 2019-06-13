@@ -182,7 +182,7 @@ FitModel2 <- function (..., formula = NULL, CovNames = NULL, mesh, spat.ind = "i
                        predictions = FALSE, tag.pred = "pred", control.fixed = NULL, 
                        waic = FALSE, dic = FALSE, nthreads = NULL) 
 {
-  stck <- inla.stack(stk.ip, stk.pred$stk, stk.gbif, stk.BBS, stk.BBA)
+  stck <- inla.stack(...)
   if (is.null(CovNames)) {
     CovNames <- unlist(stck$effects$names)
     CovNames <- CovNames[!CovNames %in% c(spat.ind)]
