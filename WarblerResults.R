@@ -16,44 +16,51 @@ load("Data/BTWarblerData.RData")
 
 proj <- CRS("+proj=longlat +datum=WGS84 +no_defs +ellps=WGS84 +towgs84=0,0,0")
 
-png("PredPlot.png", height=240)
-plot(Pred, col=grey(seq(0,1,length=100)))
+Pred <- SpatialPixelsDataFrame(points = stk.pred$predcoords, data = warbler_model$predictions, proj4string = crs(proj))
+Pred@data$precision <- Pred@data$stddev^-2
+
+
+# Pennsylvania border
+PA <- us_states(states = "Pennsylvania")
+PA <- PA$geometry[1]
+PA <- as(PA, 'Spatial')
+
+# Plot of data
+
+png("DataPlot.png", height=480, width = 640)
+par(mar=rep(0.1,4))
+plot(PA)
+points(BBA_sp[which(BBA_sp@data$present == FALSE),], cex=0.2, col="pink") # Add BBA
+points(BBA_sp[which(BBA_sp@data$present == TRUE),], cex=0.2, col="red3")
+points(BBS_sp, cex=0.5, col="blue", pch=16) # Add BBS
+points(GBIF_sp, cex=0.5, col="sandybrown", pch=16) # Add eBird
+legend(-79, 42.45, c("BBA, absent", "BBA, present", "BBS route", "eBird"), col=c("pink", "red3", "blue", "sandybrown"), pch=c(1,1,16,16), 
+       ncol = 2)
 dev.off()
 
 
+# Plot of predictions
 
-Pred <- SpatialPixelsDataFrame(points = stk.pred$predcoords, data = warbler_model$predictions, proj4string = crs(proj))
-Pred@data$precision <- Pred@data$stddev^-2
-ncolours <- 200
-meancols.fn <- colorRampPalette(brewer.pal(9, 'Oranges'))
-meancols <- meancols.fn(ncolours)
-map.mean <- mapview(Pred, zcol = c("mean"), legend = TRUE, 
-                    col.regions=meancols, layer.name = "Mean pred")
-
-sdcols.fn <- colorRampPalette(brewer.pal(9, 'Blues'))
-sdcols <- sdcols.fn(ncolours) 
-map.stddev <- mapview(Pred, zcol = c("stddev"), legend = TRUE, alpha=0.3, 
-                      col.regions = sdcols, layer.name = "SD pred")
+png("PredPlot.png", height=360, width = 640)
+par(mar=rep(0.1,4))
+plot(Pred, col=grey(seq(0,1,length=100)))
+lines(PA)
+dev.off()
 
 
-elevation <- covariates[,-(2)]
-elev.fn <- colorRampPalette(brewer.pal(9, 'Spectral'))
-elevcol <- elev.fn(ncolours)
-map.elev <- mapview(elevation, legend = TRUE, col.regions = elevcol, layer.name = "Elevation")
-
-canopy <- covariates[,-(1)]
-can.fn <- colorRampPalette(brewer.pal(9, 'BuGn'))
-cancol <- can.fn(ncolours)
-map.can <- mapview(canopy, legend = TRUE, col.regions = cancol, layer.name = "Canopy")
+# Plot of uncertainty
+png("StdDevPlot.png", height=360, width = 640)
+par(mar=rep(0.1,4))
+plot(Pred, attr=3, col=0)
+plot(Pred, attr = 'stddev', col=grey(seq(0,1,length=100)))
+lines(PA)
+dev.off()
 
 
-map.bbs <- mapview(BBS_sp, legend = TRUE, layer.name = "BBS", cex = 4, lwd = 0.5, col.regions = "yellow")
-map.gbif <- mapview(GBIF_sp, legend = TRUE, layer.name = "GBIF", cex = 4, lwd = 0.5, col.regions = "pink")
+GreyCol <- function(x) {
+  x.p <- (x - min(x))/(max(x) - min(x))
+  grey(x.p)
+}
+plot(Pred@coords, col=GreyCol(Pred@data$precision))
 
-BBAabs <- BBA_sp[which(BBA_sp@data$present == F),]
-BBApres <- BBA_sp[which(BBA_sp@data$present == T),]
-map.bba1 <- mapview(BBAabs, legend = TRUE, layer.name = "BBA absent", cex = 4, lwd = 0.5, col.regions = "grey")
-map.bba2 <- mapview(BBApres, legend = TRUE, layer.name = "BBA present", cex = 4, lwd = 0.5, col.regions = "green")
 
-map.mean + map.bbs + map.gbif + map.bba1 + map.bba2
-map.mean + map.stddev + map.elev + map.can + map.bbs + map.gbif + map.bba1 + map.bba2
