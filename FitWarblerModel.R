@@ -2,10 +2,11 @@ library(raster)
 # library(rgdal)
 # library(RColorBrewer)
 library(rgeos)
-library(PointedSDMs)
+library(INLA)
 # library(mapview)
 
-source("warblerfunctions.R")
+#source("warblerfunctions.R")
+source("Functions/FitModel.R")
 # load("BTWarblerData.RData")
 load("Data/Stacks.RData")
 
@@ -26,7 +27,7 @@ load("Data/Stacks.RData")
                               prior.range = c(0.02, 0.5),
                               prior.sigma = c(5, 0.1))
   
-  form <- formula(resp ~ 0 + elevation + canopy + Intercept + X + Y + int.BBS + 
+  form <- formula(resp ~ 0 + elevation + canopy + Intercept + X + Y + int.BBS + density + 
                     int.eBird + int.BBA + f(i, model = spde))
   
   # FitModel2 is a fixed version of Bob's FitModel

@@ -52,6 +52,21 @@ Data Folder
 - [BBS.csv](Data/BBS.csv): North American breeding bird survey data
 - [eBird.csv](Data/eBird.csv): eBird data, downloaded from GBIF
 
+Functions Folder
+
+Some of these functions are from the current version of the PointedSDms package. As that package is in early development, we cannot guarantee the functions will be the same when you read this.
+
+- [Add2010Census.R](Functions/Add2010Census.R): Functions to add 2010 census data to a data frame
+- [FitModel.R](Functions/FitModel.R): Function to fit a model with INLA (from Pointed SDMs)
+- [GetBBSData.R](Functions/GetBBSData.R): A couple of functions to update rBBS package
+- [GetNearestCovariate.R](Functions/GetNearestCovariate.R): Function to get covariate values nearest the data/integration point (from Pointed SDMs)
+- [MakeBinomStack.R](Functions/MakeBinomStack.R): Function to create stack for presence only points (from Pointed SDMs)
+- [MakeIntegrationStack.R](Functions/MakeIntegrationStack.R): Function to create stack for integration points (from Pointed SDMs)
+- [MakePointsStack.R](Functions/MakePointsStack.R): Function to create stack for presence only points (from Pointed SDMs)
+- [MakeProjectionGrid.R](Functions/MakeProjectionGrid.R): Function to create stack for predictions (from Pointed SDMs)
+- [MakeSpatialRegion.R](Functions/MakeSpatialRegion.R): Function to set up spatial structure for region (from Pointed SDMs)
+
+
 ## Acknowledgements
 
 Most of the code was written by Lea Dambly, and then changed by Bob O'Hara. Additional comments and help from ...

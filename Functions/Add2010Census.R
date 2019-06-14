@@ -1,0 +1,126 @@
+# population data from US 2010 census
+# Function to add population data (from 2010 census) to a data frame # Arguments
+#   data: spatial points data frame to add the data to
+#   proj: Projection (CRS()))
+#   censuskey: Census key to get population data.
+Add2010Census <- function(data, proj, censuskey) {
+  require(censusapi)
+  require(maps)
+  require(maptools)
+  require(rgeos)
+  # Decennial Census sf3, 2010
+  #  censuskey <- ....
+  # get population data
+  data2010 <- getCensus(name="dec/sf1", vintage=2010, key=censuskey,
+                        vars="P008001", region="county:*")
+  rownames(data2010) <- paste0(data2010$state, data2010$county)
+  
+  # Get county maps, and make into spatial polygon
+  county <- map('county', fill=TRUE)
+  data(county.fips)
+  county.fips$fips <- as.character(county.fips$fips)
+  county.fips$fips[nchar(county.fips$fips)==4] <- paste0("0",
+                                                         county.fips$fips[nchar(county.fips$fips)==4])
+  
+  county$FIPS <- county.fips$fips[match(map("county",
+                                            plot=FALSE)$names, county.fips$polyname)]
+  CountyMap <- map2SpatialPolygons(map=county, IDs = county$FIPS, proj4string = proj)
+  Countydat <- data.frame(area = unlist(lapply(CountyMap@polygons,
+                                               function(ply) ply@area)),
+                          FIPS = unlist(lapply(CountyMap@polygons,
+                                               function(ply) ply@ID)),
+                          row.names = unlist(lapply(CountyMap@polygons,
+                                                    function(ply) ply@ID)),
+                          stringsAsFactors = FALSE)
+  
+  # Merge population and county data
+  Countydat.m <- merge(Countydat, data2010, by="row.names")
+  
+  rownames(Countydat.m) <- rownames(Countydat)
+  Countydat.m$density <- Countydat.m$P008001/Countydat.m$area
+  CountyPops <- SpatialPolygonsDataFrame(data=Countydat.m, Sr=CountyMap)
+  
+  # extract data from correct polygon for data, and merge
+  PopData <- over(x=data, y=CountyPops)
+  data@data <- cbind(data@data, PopData[,c("FIPS", "density")])
+  data
+}
+
+
+# just took PointedSDM's function apart a bit because buffer function used in MakeSpatialRegion doesn't work with unprojected data - so no buffering here
+MakeSpatialRegion2 <- function (data = NULL, coords = c("X", "Y"), meshpars, bdry = NULL, 
+                                proj = CRS("+proj=utm")) {
+  require(rgeos)
+  region.bdry <- inla.sp2segment(bdry)
+mesh <- inla.mesh.2d(boundary = region.bdry, cutoff = meshpars$cutoff, 
+                     max.edge = meshpars$max.edge, offset = meshpars$offset)
+spde <- inla.spde2.matern(mesh = mesh, alpha = 2)
+dd <- deldir::deldir(mesh$loc[, 1], mesh$loc[, 2])
+tiles <- deldir::tile.list(dd)
+poly.gpc <- as(bdry@polygons[[1]]@Polygons[[1]]@coords, "gpc.poly")
+w <- sapply(tiles, function(p) rgeos::area.poly(rgeos::intersect(as(cbind(p$x, 
+                                                                          p$y), "gpc.poly"), poly.gpc)))
+return(list(mesh = mesh, spde = spde, w = w))
+}
+
+
+
+# modified function to take PC priors
+FitModel2 <- function (..., formula = NULL, CovNames = NULL, mesh, spat.ind = "i", 
+                       predictions = FALSE, tag.pred = "pred", control.fixed = NULL, 
+                       waic = FALSE, dic = FALSE, nthreads = NULL) 
+{
+  stck <- inla.stack(...)
+  if (is.null(CovNames)) {
+    CovNames <- unlist(stck$effects$names)
+    CovNames <- CovNames[!CovNames %in% c(spat.ind)]
+  }
+  else {
+    if (!is.null(formula)) {
+      warning("CovNames and formula are both not NULL: CovNames will be ignored")
+    }
+  }
+  mesh <- inla.spde2.matern(mesh)
+  if (!is.null(spat.ind)) {
+    CovNames <- c(CovNames, paste0("f(", spat.ind, ", model=mesh)"))
+  }
+  if (is.null(control.fixed)) {
+    control.fixed <- list(mean = 0)
+  }
+  if (is.null(formula)) {
+    Formula <- formula(paste(c("resp ~ 0 ", CovNames), collapse = "+"))
+  }
+  else {
+    if (is.null(spat.ind)) {
+      Formula <- formula
+    }
+    else {
+      if (any(grepl(paste0("(", spat.ind, ","), formula, 
+                    fixed = TRUE))) {
+        warning(paste0(spat.ind, " already in formula, so will be ignored"))
+        Formula <- formula
+      } else {
+        Formula <- update(formula, paste0(" ~ . + f(", spat.ind, 
+                                          ", model=mesh)"))
+      }
+    }
+  }
+  mod <- inla(Formula, family = c("poisson", "binomial"), control.family = list(list(link = "log"), 
+                                                                                list(link = "cloglog")), data = inla.stack.data(stck), 
+              verbose = FALSE, control.results = list(return.marginals.random = FALSE, 
+                                                      return.marginals.predictor = FALSE), control.predictor = list(A = inla.stack.A(stck), 
+                                                                                                                    link = NULL, compute = TRUE), control.fixed = control.fixed, 
+              Ntrials = inla.stack.data(stck)$Ntrials, E = inla.stack.data(stck)$e, 
+              num.threads = nthreads,
+              control.compute = list(waic = waic, dic = dic))
+  if (predictions) {
+    id <- inla.stack.index(stck, tag.pred)$data
+    pred <- data.frame(mean = mod$summary.fitted.values$mean[id], 
+                       stddev = mod$summary.fitted.values$sd[id])
+    res <- list(model = mod, predictions = pred)
+  }
+  else {
+    res <- mod
+  }
+  res
+}

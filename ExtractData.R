@@ -7,7 +7,7 @@ library(sp)
 library(raster)
 library(rgdal)
 library(RColorBrewer)
-library(PointedSDMs)
+# library(PointedSDMs)
 # library(mapview)
 library(censusapi)
 library(spocc)
@@ -22,7 +22,9 @@ censuskey <- "499974bdafb06dc0d903c9b082e8d37e2f9e08ce"
 
 Miller.file <- "Data/mee313110-sup-0001-supplementa.zip"
 
-source("warblerfunctions.R")
+source("Functions/GetBBSData.R")
+source("Functions/Add2010Census.R")
+# source("warblerfunctions.R")
 # Get outline of PA
 PA <- us_states(states = "Pennsylvania")
 PA <- PA$geometry[1]
@@ -138,6 +140,6 @@ if(!file.exists("Data/BTWarblerData.RData")) {
   covariates_eBird@data$FIPS <- as.numeric(covariates_eBird@data$FIPS)
   covariates_eBird@data <-data.frame(apply(covariates_eBird@data, 2 , scale))
   
-  covariates_eBird <- covariates
+  # covariates_eBird <- covariates
   save(proj, PA, BBA_sp, BBS_sp, eBird_sp, covariates, covariates_eBird, file="Data/BTWarblerData.RData")
 }

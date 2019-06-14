@@ -65,7 +65,7 @@ dev.off()
 png("StdDevPlot.png", height=360, width = 640)
 par(mar=rep(0.1,4))
 # plot(Pred, attr=3, col=0)
-plot(Pred, attr = 'stddev', col=grey(seq(1,0,length=100)))
+plot(Pred, attr = 'stddev', col=grey(seq(0,1,length=100)))
 lines(PA)
 dev.off()
 
@@ -74,6 +74,7 @@ GreyCol <- function(x) {
   x.p <- (x - min(x))/(max(x) - min(x))
   grey(x.p)
 }
+par(mfrow=c(1,1))
 plot(Pred@coords, col=GreyCol(Pred@data$precision), pch=16)
 
 
