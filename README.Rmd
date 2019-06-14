@@ -45,6 +45,7 @@ This Directory
 - [warblerfunctions.R](warblerfunctions.R): Lots of miscelleneous functions
 - [WarblerResults.R](WarblerResults.R): Code to plot & poke the results
 
+- [FitWarblerModelTwoRFs.R](FitWarblerModelTwoRFs.R): Code to fit model with a ransom field on eBird observation effort. This is in development, so doesn't do anything useful
 
 Data Folder
 
