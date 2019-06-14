@@ -1,7 +1,9 @@
+# This is intended to fit a model with a random field for the eBird observation level.At the moment it hasn't got very far.
+
 library(raster)
 # library(rgdal)
 # library(RColorBrewer)
-# library(rgeos)
+library(rgeos)
 library(INLA)
 # library(mapview)
 
@@ -27,10 +29,10 @@ load("Data/Stacks.RData")
                               prior.range = c(0.02, 0.5),
                               prior.sigma = c(5, 0.1))
   
-  form <- formula(resp ~ 0 + elevation + canopy + Intercept + X + Y + int.BBS + pop.density + 
-                    int.eBird + int.BBA + f(i, model = spde))
+  form <- formula(resp ~ 0 + elevation + canopy + Intercept + X + Y + int.BBS + density + 
+                    int.eBird + int.BBA + f(i, model = spde) + f(e, model = spde))
   
-  warbler_model <- FitModel(stk.ip, stk.BBS, stk.BBA, stk.eBird, stk.pred$stk, 
+  warbler_model <- FitModel(stk.ip, stk.pred$stk, stk.eBird, stk.BBS, stk.BBA,
                              formula = form, CovNames = NULL, mesh = Mesh$mesh,
                              predictions = TRUE, control.fixed = C.F., waic = TRUE, nthreads=16)
   
