@@ -1,4 +1,7 @@
 .Rproj.user
 .Rhistory
-.RData
+*.RData
+*.png
 .Ruserdata
+EXTRACTIONS/*
+RAW/*
