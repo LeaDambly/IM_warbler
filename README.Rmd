@@ -13,20 +13,21 @@ This is the repository for the code for the integrated modelling example for Isa
 We use the following observation data:
 
 -  Pennsylvania Breeding Bird Atlas point count data for part of Pennsylvania. This is taken straight from [the SI](https://besjournals.onlinelibrary.wiley.com/action/downloadSupplement?doi=10.1111%2F2041-210X.13110&file=mee313110-sup-0001-supplementA.zip) of @Miller2019
-- eBird data from 2006-2009, down loaded from GBIF, using the spocc package [@Spocc]
+- eBird data from 2006-2009, downloaded from GBIF, using the spocc package [@Spocc]
 - North American BBS data [@NABBS] for 2005-2009
 
 These data are in the Data directory.
 
-For environmental data we use elevation and canopy cover, both imported directly into R
+For environmental data we use elevation and canopy cover, both imported directly into R.
 
-LEA, ADD DETAILS?
+- Elevation is imported using the elevatr package which utilises Amazon Web Services terrain tiles [@elevatr]
+- Canopy cover is imported using the FedData package which downloads the USGS's NLCD canopy data from 2011 [@FedData]
 
 ## Workflow
 
 The workflow is as follows:
 
-- extract the observation data, with [ExtractData.R](ExtractData.R). This has already been done, and hte results are the .csv files in Data/
+- extract the observation data, with [ExtractData.R](ExtractData.R). This has already been done, and the results are the .csv files in Data/
 - make the INLA stacks, using [MakeStacks.R](MakeStacks.R). This includes the covariate data, and creates some large objects that we don't save in this repository.
 - Fit the model, with [FitWarblerModel.R](FitWarblerModel.R). This takes some time (overnight?), and creates another big .RData file.
 - Look at and plot the results, with [WarblerResults.R](WarblerResults.R). This produces some maps 
@@ -45,7 +46,7 @@ This Directory
 - [warblerfunctions.R](warblerfunctions.R): Lots of miscelleneous functions
 - [WarblerResults.R](WarblerResults.R): Code to plot & poke the results
 
-- [FitWarblerModelTwoRFs.R](FitWarblerModelTwoRFs.R): Code to fit model with a ransom field on eBird observation effort. This is in development, so doesn't do anything useful
+- [FitWarblerModelTwoRFs.R](FitWarblerModelTwoRFs.R): Code to fit model with a random field on eBird observation effort. This is in development, so doesn't do anything useful
 
 Data Folder
 
