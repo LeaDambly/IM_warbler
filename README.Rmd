@@ -3,7 +3,7 @@ title: "README"
 author: "Bob O'Hara & Lea Dambly"
 bibliography: References.bib
 date: "6/14/2019"
-output: html_document
+output: github_document
 ---
 
 ## Introduction
