@@ -32,7 +32,11 @@ stk.ip <- MakeIntegrationStack(
 )
 
 # make data for projections
-Nxy.scale <- 0.01 # change the resolution of the predictions
+
+# This sets the resolution of the predictions. For the final version we use 
+# Nxy.scale <- 0.01, but have changed it here so the code will run more quickly.
+if(!exists("Nxy.scale")) Nxy.scale <- 0.1
+
 Boundary <- Mesh$mesh$loc[Mesh$mesh$segm$int$idx[, 2], ]
 Nxy.size <- c(diff(range(Boundary[, 1])), diff(range(Boundary[, 2])))
 Nxy <- round(Nxy.size / Nxy.scale)
