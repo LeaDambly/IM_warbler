@@ -169,8 +169,8 @@ canopy <- as.data.frame(NLCD_canopy, xy = TRUE, na.rm = TRUE)
 covariates <- full_join(elevation, canopy, by = c("x", "y"))
 covariates <- covariates %>%
   dplyr::rename(
-    elevation = layer,
-    canopy = PA_lc_NLCD_2011_canopy,
+    elevation = layer.x,
+    canopy = layer.y,
     X = x, Y = y
   )
 
