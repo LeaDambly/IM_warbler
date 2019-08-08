@@ -23,13 +23,15 @@ For environmental data we use elevation and canopy cover, both imported directly
 - Elevation is imported using the elevatr package which utilises Amazon Web Services terrain tiles [@elevatr]
 - Canopy cover is imported using the FedData package which downloads the USGS's NLCD canopy data from 2011 [@FedData]
 
+In addition, we use population density from the [U.S. Census Bureau](https://www.census.gov/) [@censusapi], as a covariate on the eBird data. If you wish to download this data directly, you will need a census key, which you can get [by signing up here](https://api.census.gov/data/key_signup.html). The data used in the model fitting has already been downloaded.
+
 ## Workflow
 
 The workflow is as follows:
 
-- extract the observation data, with [ExtractData.R](ExtractData.R). This has already been done, and the results are the .csv files in Data/
+- extract the observation data, with [ExtractData.R](ExtractData.R). Note that you will need a key for the US census to run this. This has already been done, and the results are the .csv files in Data/
 - make the INLA stacks, using [MakeStacks.R](MakeStacks.R). This includes the covariate data, and creates some large objects that we don't save in this repository.
-- Fit the model, with [FitWarblerModel.R](FitWarblerModel.R). This takes some time (overnight?), and creates another big .RData file.
+- Fit the model, with [FitWarblerModel.R](FitWarblerModel.R). This takes some time (overnight with the fine-scaled prediction surface), and creates another big .RData file.
 - Look at and plot the results, with [WarblerResults.R](WarblerResults.R). This produces some maps 
 
 ## Files
@@ -52,7 +54,7 @@ Data Folder
 
 - [BBA.csv](Data/BBA.csv): Pennsylvania breeding bird atlas data
 - [BBS.csv](Data/BBS.csv): North American breeding bird survey data
-- [eBird.csv](Data/eBird.csv): eBird data, downloaded from GBIF
+- [eBird.csv](Data/eBird.csv): eBird data, downloaded from GBIF, plus census data from the US Census Bureau
 
 Functions Folder
 
