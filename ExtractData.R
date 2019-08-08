@@ -6,6 +6,10 @@ library(elevatr)
 library(FedData)
 library(dplyr)
 library(censusapi)
+library(spocc)
+
+# You can get this with devtools::install_github("oharar/rBBS")
+# library(rBBS)
 
 if(!exists("censuskey")) {
   warning("No US census bureau censuskey. If you don't have it, ask for one from https://api.census.gov/data/key_signup.html")
@@ -169,14 +173,23 @@ NLCD_canopy <- mask(NLCD_canopy, elev)
 canopy <- as.data.frame(NLCD_canopy, xy = TRUE, na.rm = TRUE)
 
 covariates <- full_join(elevation, canopy, by = c("x", "y"))
-covariates <- covariates %>%
-  dplyr::rename(
-    elevation = layer, ## ????
-    canopy = PA_lc_NLCD_2011_canopy,
-#    elevation = layer.x,
-#    canopy = layer.y,
-    X = x, Y = y
-  )
+# there seems to be a naming clash between different computers, so rather than sorting it out properly...
+if(exists("PA_lc_NLCD_2011_canopy", covariates)) {
+  covariates <- covariates %>%
+    dplyr::rename(
+      elevation = layer, ## ????
+      canopy = PA_lc_NLCD_2011_canopy,
+      X = x, Y = y
+    )
+} else {
+  covariates <- covariates %>%
+    dplyr::rename(
+      elevation = layer.x,
+      canopy = layer.y,
+      X = x, Y = y
+    )
+  
+}
 
 covariate_coords <- covariates[, c("X", "Y")]
 covariate_data <- covariates[, c("elevation", "canopy")]

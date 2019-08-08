@@ -71,6 +71,15 @@ Some of these functions are from the current version of the PointedSDms package.
 - [MakeProjectionGrid.R](Functions/MakeProjectionGrid.R): Function to create stack for predictions (from Pointed SDMs)
 - [MakeSpatialRegion.R](Functions/MakeSpatialRegion.R): Function to set up spatial structure for region (from Pointed SDMs)
 
+## Memory requirements
+
+Fitting the model with the [FitModel.R](Functions/FitModel.R) function and the fully-scaled prediction layer can take &gt;24 hours and can potentially crash due to the large amount of memory required. Thus a lower-resolution prediction is made, but see the note in [MakeStacks.R](MakeStacks.R) about creating the full predictions.
+
+If you want teh predictions at a high resolution and hit memory problems, there are a couple of possible solutions:
+
+- reduce the number of threads used via the nthreads argument - this will increase runtime but reduce memory requirements. 
+- run the code on a larger machine or [remote server](http://www.r-inla.org/faq#TOC-I-have-access-to-a-remote-Linux-server-is-it-possible-to-run-the-computations-remotely-and-running-R-locally-), or ma.
+
 
 ## Acknowledgements
 
