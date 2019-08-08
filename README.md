@@ -40,9 +40,10 @@ model fitting has already been downloaded.
 ## Workflow
 
 Note that the files should run “as is”, but the predictions will be at a
-coarser scale than used in published paper. This is to ensure it runs
-within a reasonable time on a Desktop computer. If you want the predictions at the scale used in the
-paper (we used HPC), set `Nxy.scale <- 0.01` before you run MakeStacks.R.
+coarser scale than used in final version. This is to ensure it runs
+fairly quickly (high performance computers were used for the final
+version). If you want the predictions at the scale used in the final
+version, set `Nxy.scale <- 0.01` before you run MakeStacks.R.
 
 The workflow is as follows:
 
@@ -72,13 +73,11 @@ This Directory
   - [README.Rmd](README.Rmd): … this file (the R Markdown file to make
     the Markdown file)
   - [References.bib](References.bib): BibTex file with references
-  - [warblerfunctions.R](warblerfunctions.R): Lots of miscelleneous
-    functions
   - [WarblerResults.R](WarblerResults.R): Code to plot & poke the
     results
   - [FitWarblerModelTwoRFs.R](FitWarblerModelTwoRFs.R): Code to fit
     model with a random field on eBird observation effort. This is in
-    development, so doesn’t do anything useful
+    development, so doesn’t do anything useful (yet)
 
 Data Folder
 
@@ -112,6 +111,23 @@ the functions will be the same when you read this.
     create stack for predictions (from Pointed SDMs)
   - [MakeSpatialRegion.R](Functions/MakeSpatialRegion.R): Function to
     set up spatial structure for region (from Pointed SDMs)
+
+## Memory requirements
+
+Fitting the model with the [FitModel.R](Functions/FitModel.R) function
+and the fully-scaled prediction layer can take \>24 hours and can
+potentially crash due to the large amount of memory required. Thus a
+lower-resolution prediction is made, but see the note in
+[MakeStacks.R](MakeStacks.R) about creating the full predictions.
+
+If you want teh predictions at a high resolution and hit memory
+problems, there are a couple of possible solutions:
+
+  - reduce the number of threads used via the nthreads argument - this
+    will increase runtime but reduce memory requirements.
+  - run the code on a larger machine or [remote
+    server](http://www.r-inla.org/faq#TOC-I-have-access-to-a-remote-Linux-server-is-it-possible-to-run-the-computations-remotely-and-running-R-locally-),
+    or ma.
 
 ## Acknowledgements
 
