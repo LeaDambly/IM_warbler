@@ -1,7 +1,7 @@
 README
 ================
 Bob O’Hara & Lea Dambly
-6/14/2019
+8/7/2019
 
 ## Introduction
 
@@ -39,6 +39,11 @@ model fitting has already been downloaded.
 
 ## Workflow
 
+Note that the files should run “as is”, but the predictions will be at a
+coarser scale than used in final version. This is to ensure it runs
+fairly quickly. If you want the predictions at the scale used in the
+final version, set `Nxy.scale <- 0.01` before you run MakeStacks.R.
+
 The workflow is as follows:
 
   - extract the observation data, with [ExtractData.R](ExtractData.R).
@@ -59,27 +64,18 @@ This Directory
 
   - [ExtractData.R](ExtractData.R): Code to extract data from different
     sources, and save as .csvs.
-
   - [FitWarblerModel.R](FitWarblerModel.R): Code to, um, fit the warbler
     model
-
   - [IM\_warbler.Rproj](IM_warbler.Rproj): R project file
-
   - [MakeStacks.R](MakeStacks.R): Code to make INLA stacks from data.
-
-  - [README.html](README.html): This file, unless you’re looking at…
-
-  - [README.Rmd](README.Rmd): … this file (the Markdown file to make the
-    html)
-
+  - [README.md](README.md): This file, unless you’re looking at…
+  - [README.Rmd](README.Rmd): … this file (the R Markdown file to make
+    the Markdown file)
   - [References.bib](References.bib): BibTex file with references
-
   - [warblerfunctions.R](warblerfunctions.R): Lots of miscelleneous
     functions
-
   - [WarblerResults.R](WarblerResults.R): Code to plot & poke the
     results
-
   - [FitWarblerModelTwoRFs.R](FitWarblerModelTwoRFs.R): Code to fit
     model with a random field on eBird observation effort. This is in
     development, so doesn’t do anything useful
@@ -120,7 +116,8 @@ the functions will be the same when you read this.
 ## Acknowledgements
 
 Most of the code was written by Lea Dambly, and then changed by Bob
-O’Hara. Additional comments and help from …
+O’Hara. Additional comments and help from Nick Isaac, Nick Golding and
+Colin Beale.
 
 ## References
 

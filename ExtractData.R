@@ -7,6 +7,10 @@ library(FedData)
 library(dplyr)
 library(censusapi)
 
+if(!exists("censuskey")) {
+  warning("No US census bureau censuskey. If you don't have it, ask for one from https://api.census.gov/data/key_signup.html")
+}
+
 # required function
 source("Functions/Add2010Census.R")
 
@@ -58,8 +62,6 @@ BBA_sp <- SpatialPointsDataFrame(
   data = BBA_Wren[, c("present", "point")],
   proj4string = crs(proj)
 )
-
-
 
 # Get BBS data (using rBBS package)
 if (!file.exists("Data/BBS.csv")) {
@@ -171,6 +173,8 @@ covariates <- covariates %>%
   dplyr::rename(
     elevation = layer, ## ????
     canopy = PA_lc_NLCD_2011_canopy,
+#    elevation = layer.x,
+#    canopy = layer.y,
     X = x, Y = y
   )
 
