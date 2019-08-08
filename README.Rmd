@@ -47,9 +47,8 @@ This Directory
 - [README.md](README.md): This file, unless you're looking at...
 - [README.Rmd](README.Rmd): ... this file (the R Markdown file to make the Markdown file)
 - [References.bib](References.bib): BibTex file with references
-- [warblerfunctions.R](warblerfunctions.R): Lots of miscelleneous functions
 - [WarblerResults.R](WarblerResults.R): Code to plot & poke the results
-- [FitWarblerModelTwoRFs.R](FitWarblerModelTwoRFs.R): Code to fit model with a random field on eBird observation effort. This is in development, so doesn't do anything useful
+- [FitWarblerModelTwoRFs.R](FitWarblerModelTwoRFs.R): Code to fit model with a random field on eBird observation effort. This is in development, so doesn't do anything useful (yet)
 
 Data Folder
 
