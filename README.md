@@ -40,9 +40,9 @@ model fitting has already been downloaded.
 ## Workflow
 
 Note that the files should run “as is”, but the predictions will be at a
-coarser scale than used in final version. This is to ensure it runs
-fairly quickly. If you want the predictions at the scale used in the
-final version, set `Nxy.scale <- 0.01` before you run MakeStacks.R.
+coarser scale than used in published paper. This is to ensure it runs
+within a reasonable time on a Desktop computer. If you want the predictions at the scale used in the
+paper (we used HPC), set `Nxy.scale <- 0.01` before you run MakeStacks.R.
 
 The workflow is as follows:
 
