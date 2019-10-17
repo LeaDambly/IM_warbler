@@ -2,22 +2,24 @@ library(INLA)
 
 
 # load functions for building INLA stacks
-source("Functions/MakeSpatialRegion.R")
-source("Functions/MakeIntegrationStack.R")
-source("Functions/GetNearestCovariate.R")
-source("Functions/MakeProjectionGrid.R")
-source("Functions/MakeBinomStack.R")
-source("Functions/MakePointsStack.R")
+source("02_code/functions/MakeSpatialRegion.R")
+source("02_code/functions/MakeIntegrationStack.R")
+source("02_code/functions/GetNearestCovariate.R")
+source("02_code/functions/MakeProjectionGrid.R")
+source("02_code/functions/MakeBinomStack.R")
+source("02_code/functions/MakePointsStack.R")
 
-# load warbler data created in ExtractData.R
-load("Data/BTWarblerData.RData")
+# load bat data created in clean-data.R
+load("01_data/IM_bats_data.RData")
+proj <- proj4string(covariates)
 
 # Create the mesh to approximate the area and the spatial field
-Meshpars <- list(max.edge = c(0.05, 0.4), offset = c(0.1, 0.4), cutoff = 0.1)
+# units are in decimal degrees
+Meshpars <- list(max.edge = c(0.1, 0.1), offset = c(0.1, 0.1), cutoff = 0.1)
 
 Mesh <- MakeSpatialRegion(
   data = NULL,
-  bdry = PA,
+  bdry = EW_proj,
   meshpars = Meshpars,
   proj = proj
 )
