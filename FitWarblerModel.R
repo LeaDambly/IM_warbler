@@ -52,5 +52,5 @@ warbler_model <- FitModel(
 
 save(
   C.F., spde, form, warbler_model,
-  file = "Data/WarblerModelOutputDensity.RData"
+  file = "Data/WarblerModelOutput.RData"
 )

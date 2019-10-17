@@ -2,24 +2,22 @@ library(INLA)
 
 
 # load functions for building INLA stacks
-source("02_code/functions/MakeSpatialRegion.R")
-source("02_code/functions/MakeIntegrationStack.R")
-source("02_code/functions/GetNearestCovariate.R")
-source("02_code/functions/MakeProjectionGrid.R")
-source("02_code/functions/MakeBinomStack.R")
-source("02_code/functions/MakePointsStack.R")
+source("Functions/MakeSpatialRegion.R")
+source("Functions/MakeIntegrationStack.R")
+source("Functions/GetNearestCovariate.R")
+source("Functions/MakeProjectionGrid.R")
+source("Functions/MakeBinomStack.R")
+source("Functions/MakePointsStack.R")
 
-# load bat data created in clean-data.R
-load("01_data/IM_bats_data.RData")
-proj <- proj4string(covariates)
+# load warbler data created in ExtractData.R
+load("Data/BTWarblerData.RData")
 
 # Create the mesh to approximate the area and the spatial field
-# units are in decimal degrees
-Meshpars <- list(max.edge = c(0.1, 0.1), offset = c(0.1, 0.1), cutoff = 0.1)
+Meshpars <- list(max.edge = c(0.05, 0.4), offset = c(0.1, 0.4), cutoff = 0.1)
 
 Mesh <- MakeSpatialRegion(
   data = NULL,
-  bdry = EW_proj,
+  bdry = PA,
   meshpars = Meshpars,
   proj = proj
 )
@@ -34,7 +32,11 @@ stk.ip <- MakeIntegrationStack(
 )
 
 # make data for projections
-Nxy.scale <- 0.01 # change the resolution of the predictions
+
+# This sets the resolution of the predictions. For the final version we use 
+# Nxy.scale <- 0.01, but have changed it here so the code will run more quickly.
+if(!exists("Nxy.scale")) Nxy.scale <- 0.1
+
 Boundary <- Mesh$mesh$loc[Mesh$mesh$segm$int$idx[, 2], ]
 Nxy.size <- c(diff(range(Boundary[, 1])), diff(range(Boundary[, 2])))
 Nxy <- round(Nxy.size / Nxy.scale)

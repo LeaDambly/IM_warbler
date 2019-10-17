@@ -6,6 +6,14 @@ library(elevatr)
 library(FedData)
 library(dplyr)
 library(censusapi)
+library(spocc)
+
+# You can get this with devtools::install_github("oharar/rBBS")
+# library(rBBS)
+
+if(!exists("censuskey")) {
+  warning("No US census bureau censuskey. If you don't have it, ask for one from https://api.census.gov/data/key_signup.html")
+}
 
 # required function
 source("Functions/Add2010Census.R")
@@ -27,26 +35,26 @@ PA <- as(PA, "Spatial")
 
 # BBA from Miller et al. appendix
 if (!file.exists("Data/BBA.csv")) {
-
+  
   # Local Location of file with data from Miller et al. (2019)
   # Data downloaded from here:
   Miller.url <- "https://besjournals.onlinelibrary.wiley.com/action/downloadSupplement?doi=10.1111%2F2041-210X.13110&file=mee313110-sup-0001-supplementA.zip"
   Miller.file <- "Data/mee313110-sup-0001-supplementa.zip"
-
+  
   # download the Miller file if needed
   if (!file.exists(Miller.file)) {
     download.file(Muller.url, Miller.file)
   }
-
+  
   load(unzip(Miller.file, files = "DI_Data.Rdata"))
-
+  
   # sum counts (counts undertaken in 5 time intervals at a single spatial point)
   BBA_Wren <- bba %>%
     mutate(total = dplyr::select(., v1:v5) %>% rowSums(na.rm = TRUE)) %>%
     dplyr::select(-c(v1:v5)) %>%
     mutate(present = if_else(total == 0, FALSE, TRUE)) %>%
     dplyr::rename(X = Longitude, Y = Latitude)
-
+  
   write.csv(BBA_Wren, file = "Data/BBA.csv")
 } else {
   BBA_Wren <- read.csv(file = "Data/BBA.csv")
@@ -59,25 +67,23 @@ BBA_sp <- SpatialPointsDataFrame(
   proj4string = crs(proj)
 )
 
-
-
 # Get BBS data (using rBBS package)
 if (!file.exists("Data/BBS.csv")) {
   library(rBBS)
   source("Functions/GetBBSData.R")
   ldply <- plyr::ldply
-
+  
   RegionMetaData <- GetRegions()
   WeatherMetaData <- GetWeather()
   RoutesMetaData <- GetRoutes()
-
+  
   idx <- RegionMetaData[["State/Prov/TerrName"]] == "PENNSYLVANIA"
   PACode <- RegionMetaData$RegionCode[idx]
   PAYears <- 2005:2009
-
+  
   # fixed getRouteData
   RegionsForZipFiles <- GetRegions(ZipFiles = TRUE)
-
+  
   BBS_Wren <- GetRouteData(
     AOU = 6540,
     countrynum = 840,
@@ -88,7 +94,7 @@ if (!file.exists("Data/BBS.csv")) {
     TenStops = FALSE,
     Zeroes = TRUE
   )
-
+  
   # counts are made along a route
   # need to be made into number of presences and number of trials (routes)
   BBS_Wren <- BBS_Wren %>%
@@ -102,7 +108,7 @@ if (!file.exists("Data/BBS.csv")) {
       Longitude = first(Longitude)
     ) %>%
     dplyr::rename(X = Longitude, Y = Latitude)
-
+  
   # change to spatial points
   BBS_Wren <- as.data.frame(BBS_Wren)
   write.csv(BBS_Wren, file = "Data/BBS.csv")
@@ -124,11 +130,11 @@ if (!file.exists("Data/eBird.csv")) {
     date = c("2005-01-01", "2005-12-31"),
     geometry = PA@bbox
   )$gbif
-
+  
   rows <- grep("EBIRD", eBird.raw$data$Setophaga_caerulescens$collectionCode)
   cols <- c("longitude", "latitude", "year")
   eBird <- eBird.raw$data$Setophaga_caerulescens[rows, cols]
-
+  
   # make into spatial points
   eBird_coords <- cbind(eBird$longitude, eBird$latitude)
   colnames(eBird_coords) <- c("X", "Y")
@@ -167,12 +173,23 @@ NLCD_canopy <- mask(NLCD_canopy, elev)
 canopy <- as.data.frame(NLCD_canopy, xy = TRUE, na.rm = TRUE)
 
 covariates <- full_join(elevation, canopy, by = c("x", "y"))
-covariates <- covariates %>%
-  dplyr::rename(
-    elevation = layer.x,
-    canopy = layer.y,
-    X = x, Y = y
-  )
+# there seems to be a naming clash between different computers, so rather than sorting it out properly...
+if(exists("PA_lc_NLCD_2011_canopy", covariates)) {
+  covariates <- covariates %>%
+    dplyr::rename(
+      elevation = layer, ## ????
+      canopy = PA_lc_NLCD_2011_canopy,
+      X = x, Y = y
+    )
+} else {
+  covariates <- covariates %>%
+    dplyr::rename(
+      elevation = layer.x,
+      canopy = layer.y,
+      X = x, Y = y
+    )
+  
+}
 
 covariate_coords <- covariates[, c("X", "Y")]
 covariate_data <- covariates[, c("elevation", "canopy")]
